@@ -712,6 +712,31 @@ public class DownloadManagerTest {
     assertEqualIgnoringUpdateTime(mergedDownload, expectedDownload);
   }
 
+  @Test
+  public void download_progressListener_receivesProgressData() throws Throwable {
+    postDownloadRequest(ID1);
+    assertDownloading(ID1);
+
+    FakeDownloader downloader = getDownloaderAt(0);
+    downloader.assertId(ID1);
+    downloader.assertDownloadStarted();
+
+    downloader.incrementBytesDownloaded();
+
+    Downloader.ProgressListener progressListener = (contentLength, bytesDownloaded, percentDownloaded) -> {
+      assertThat(contentLength).isEqualTo(C.LENGTH_UNSET);
+      assertThat(bytesDownloaded).isNotEqualTo(0);
+      assertThat(percentDownloaded).isEqualTo(C.PERCENTAGE_UNSET);
+    };
+
+    downloadManager.setProgressListener(ID1, progressListener);
+
+    assertThat(downloader.bytesDownloaded).isNotEqualTo(0);
+
+    downloader.finish();
+    assertCompleted(ID1);
+  }
+
   private void setupDownloadManager(int maxParallelDownloads) throws Exception {
     if (downloadManager != null) {
       releaseDownloadManager();

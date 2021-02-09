@@ -416,6 +416,15 @@ public final class DownloadManager {
         .sendToTarget();
   }
 
+  /**
+   * Sets {@link Downloader.ProgressListener} to an active task by request id
+   * @param requestId is {@link DownloadRequest#id}
+   * @param listener is {@link Downloader.ProgressListener}
+   */
+  public void setProgressListener(String requestId, @Nullable Downloader.ProgressListener listener) {
+    internalHandler.setListener(requestId, listener);
+  }
+
   /** Returns the used {@link DownloadIndex}. */
   public DownloadIndex getDownloadIndex() {
     return downloadIndex;
@@ -1284,6 +1293,13 @@ public final class DownloadManager {
     private static int compareStartTimes(Download first, Download second) {
       return Util.compareLong(first.startTimeMs, second.startTimeMs);
     }
+
+    private void setListener(String requestId, @Nullable Downloader.ProgressListener listener) {
+      Task activeTask = activeTasks.get(requestId);
+      if (activeTask != null && !activeTask.isRemove) {
+        activeTask.setListener(listener);
+      }
+    }
   }
 
   private static class Task extends Thread implements Downloader.ProgressListener {
@@ -1300,6 +1316,8 @@ public final class DownloadManager {
 
     private long contentLength;
 
+    private Downloader.ProgressListener listener;
+
     private Task(
         DownloadRequest request,
         Downloader downloader,
@@ -1314,6 +1332,11 @@ public final class DownloadManager {
       this.minRetryCount = minRetryCount;
       this.internalHandler = internalHandler;
       contentLength = C.LENGTH_UNSET;
+      listener = null;
+    }
+
+    public void setListener(@Nullable Downloader.ProgressListener listener) {
+      this.listener = listener;
     }
 
     @SuppressWarnings("nullness:assignment.type.incompatible")
@@ -1374,6 +1397,9 @@ public final class DownloadManager {
 
     @Override
     public void onProgress(long contentLength, long bytesDownloaded, float percentDownloaded) {
+      if (listener != null) {
+        listener.onProgress(contentLength, bytesDownloaded, percentDownloaded);
+      }
       downloadProgress.bytesDownloaded = bytesDownloaded;
       downloadProgress.percentDownloaded = percentDownloaded;
       if (contentLength != this.contentLength) {
